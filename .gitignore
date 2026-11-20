@@ -1,0 +1,4 @@
+# local test files
+*.log
+*.tmp
+.DS_Store
