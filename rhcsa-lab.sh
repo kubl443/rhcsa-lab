@@ -64,7 +64,7 @@ guest_base() {
   systemctl enable --now firewalld tuned chronyd crond
 
   # boot menu for 5 seconds and boot messages on the normal console (Proxmox web UI),
-  # so you can interrupt the boot (rd.break) to reset a root password
+  # so you can interrupt the boot to reset a root password
   for a in $(grubby --info=DEFAULT | sed -n 's/^args="\(.*\)"$/\1/p'); do
     [[ "$a" == console=ttyS* ]] && grubby --update-kernel=ALL --remove-args="$a"
   done

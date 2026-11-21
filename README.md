@@ -150,8 +150,10 @@ Set them as environment variables, e.g. `STORAGE=local-zfs bash rhcsa-lab.sh cre
 - IP forwarding is enabled (`/etc/sysctl.d/99-kubl-labs.conf`)
 - `/root/kubl-labs`: the cloud image, an SSH key for the script, logs and grading results
 
-`destroy` removes everything except `/root/kubl-labs`. Note that applying the SDN
-configuration also applies other pending SDN changes on the host.
+If other SDN changes are pending on the host, the script stops instead of applying them.
+
+`destroy` removes everything except `/root/kubl-labs`. To remove that too:
+`rm -rf /root/kubl-labs`
 
 The lab uses simple passwords on purpose. The VMs are only reachable through the Proxmox host.
 

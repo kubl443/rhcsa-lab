@@ -3,14 +3,15 @@
 One way to solve each task. Other ways are fine, the grader only checks the result.
 
 **1. Root password (node2 console)**
-Reboot, in the boot menu press `e`, add `rd.break` to the end of the `linux` line, `Ctrl+x`.
+Reboot, in the boot menu press `e`, add `init=/bin/bash` to the end of the `linux` line, `Ctrl+x`.
 ```bash
-mount -o remount,rw /sysroot
-chroot /sysroot
+mount -o remount,rw /
 passwd root                     # redhat
 touch /.autorelabel             # without this, SELinux blocks the login after the reboot
-exit; exit
+exec /sbin/init                 # continue booting (the relabel reboots once more)
 ```
+On RHEL 8 and 9 this was often done with `rd.break` and `chroot /sysroot`. On RHEL 10,
+`init=/bin/bash` is the reliable way.
 
 **2. Network (node2 console)**
 ```bash

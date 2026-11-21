@@ -150,6 +150,7 @@ check_host() {
 # Own network: SDN zone $ZONE (simple, NAT) with the VNet $VNET. Only touches what this script
 # created: it stops if a VNet with the same name already exists.
 network_up() {
+  check_sdn_pending
   if pvesh get "/cluster/sdn/vnets/$VNET" >/dev/null 2>&1; then
     [[ -f "$DIR/vnet" ]] ||
       die "a Proxmox SDN VNet '$VNET' already exists and was not created by kubl-labs. Use another name: VNET=name bash $SCRIPT create"
@@ -176,6 +177,7 @@ network_up() {
 
 network_down() {
   [[ -f "$DIR/vnet" ]] || return 0
+  check_sdn_pending
   pvesh delete "/cluster/sdn/vnets/$VNET/subnets/$ZONE-$NET.0-24" >/dev/null 2>&1 || true
   pvesh delete "/cluster/sdn/vnets/$VNET" >/dev/null 2>&1 || true
   # the marker goes only when the VNet is really gone, so a failed delete can be retried
@@ -188,6 +190,25 @@ network_down() {
   fi
   pvesh set /cluster/sdn >/dev/null 2>&1 || true
   ok "lab network removed"
+}
+
+# The VMs need the internet (packages). Test it once, right after boot, instead of failing
+# 10 minutes later with a confusing DNS error.
+check_internet() {
+  local host="${IMG_URL#*://}"; host="${host%%/*}"
+  remote_script "$(node_ip "${NODES[0]%% *}")" "curl -sS -o /dev/null --max-time 15 https://$host/" >>"$LOG/proxmox.log" 2>&1 ||
+    die "the VMs can't reach the internet ($host). Often a firewall on this host drops forwarded traffic, see Troubleshooting in the README."
+  ok "the VMs can reach the internet"
+}
+
+# Applying the SDN configuration applies ALL pending changes, so stop if something else is pending.
+check_sdn_pending() {
+  local kind
+  for kind in zones vnets; do
+    grep -q '"state"' <<<"$(pvesh get "/cluster/sdn/$kind" --pending 1 --output-format json 2>/dev/null)" &&
+      die "there are pending SDN changes on this host (Datacenter > SDN). Apply or revert them first, the lab would apply them too."
+  done
+  return 0
 }
 
 # Storage for the disks. It must support snapshots, the whole reset idea depends on it.
@@ -302,6 +323,7 @@ cmd_create() {
 
   say "Waiting for the VMs to boot"
   wait_ssh "$CLOUD_USER"; root_ssh; ok "all VMs are up"
+  check_internet
 
   lab_build
 
