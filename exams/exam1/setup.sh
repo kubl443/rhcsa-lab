@@ -3,7 +3,7 @@
 # Spoilers: don't read this before you did the exam.
 
 run node1 <<'EOF'
-# task 12/13: web server on port 82, page with the wrong SELinux label, SELinux permissive
+# task 10/11: web server on port 82, page with the wrong SELinux label, SELinux permissive
 setenforce 0
 sed -i 's/^SELINUX=.*/SELINUX=permissive/' /etc/selinux/config
 dnf -y -q install httpd
@@ -12,7 +12,7 @@ echo '<h1>kubl-labs node1</h1>' >/root/index.html
 mv /root/index.html /var/www/html/index.html
 systemctl enable --now httpd
 
-# task 14: files of jacques all over the system
+# task 12: files of jacques all over the system
 useradd -M -u 2050 -s /sbin/nologin jacques
 rm -f /var/spool/mail/jacques   # useradd creates a mail spool, the task expects only the 5 files below
 for f in /var/tmp/jacques-report.txt /opt/inventory.csv /usr/local/share/notes.md /etc/jacques.conf /srv/backup.log; do
@@ -20,7 +20,7 @@ for f in /var/tmp/jacques-report.txt /opt/inventory.csv /usr/local/share/notes.m
   chown jacques "$f"
 done
 
-# task 15: a log file
+# task 13: a log file
 mkdir -p /var/log/kubl
 for i in $(seq 1 59); do
   case $((i % 7)) in
@@ -30,25 +30,25 @@ for i in $(seq 1 59); do
   esac
 done >/var/log/kubl/app.log
 
-# task 16: something to archive
+# task 14: something to archive
 mkdir -p /usr/local/share/kubl
 echo "kubl-labs archive marker" >/usr/local/share/kubl/marker.txt
 
-# task 11: the user whose home is on utility (UID like there)
+# task 9: the user whose home is on utility (UID like there)
 useradd -M -u 1501 -d /rhome/remoteuser1 remoteuser1
 echo remoteuser1:kubl123 | chpasswd
 
-# task 25: user for the SSH keys
+# task 26: user for the SSH keys
 useradd deploy
 echo deploy:kubl123 | chpasswd
 
-# task 3: no repositories
+# task 1: no repositories
 rm -f /etc/yum.repos.d/*.repo
 dnf clean all >/dev/null
 EOF
 
 run node2 <<'EOF'
-# task 19/20: appvg on /dev/vdc1 (2 GiB) with applv (400 MiB, ext4) at /app, rest of vdc free
+# task 20/21: appvg on /dev/vdc1 (2 GiB) with applv (400 MiB, ext4) at /app, rest of vdc free
 parted -s /dev/vdc mklabel gpt mkpart appvg 1MiB 2049MiB set 1 lvm on
 udevadm settle
 pvcreate -q /dev/vdc1
@@ -61,7 +61,7 @@ systemctl daemon-reload
 mount /app
 echo "important data, don't lose it" >/app/important.txt
 
-# task 23: a quiet service (sleeps, no CPU load) that runs with the normal priority
+# task 24: a quiet service (sleeps, no CPU load) that runs with the normal priority
 cat >/usr/local/bin/report-builder <<'SCRIPT'
 #!/bin/bash
 # pretends to build reports, just sleeps
@@ -81,26 +81,26 @@ UNIT
 systemctl daemon-reload
 systemctl enable --now report-builder
 
-# task 21: not the recommended tuned profile
+# task 22: not the recommended tuned profile
 tuned-adm profile powersave
 
-# task 22: journal only in memory (Storage=auto without /var/log/journal, the RHEL default)
+# task 23: journal only in memory (Storage=auto without /var/log/journal, the RHEL default)
 sed -i 's/^Storage=/#Storage=/' /etc/systemd/journald.conf /etc/systemd/journald.conf.d/*.conf 2>/dev/null || true
 rm -rf /var/log/journal
 systemctl restart systemd-journald
 
-# task 25: user for the SSH keys
+# task 26: user for the SSH keys
 useradd deploy
 echo deploy:kubl123 | chpasswd
 
-# task 3: no repositories
+# task 18: no repositories
 rm -f /etc/yum.repos.d/*.repo
 dnf clean all >/dev/null
 
-# task 1: nobody knows the root password
+# task 16: nobody knows the root password
 echo "root:$(head -c 18 /dev/urandom | base64)" | chpasswd
 
-# task 2: wrong address, no gateway, no DNS, no hostname. Applied 3 s after this script ends.
+# task 17: wrong address, no gateway, no DNS, no hostname. Applied 3 s after this script ends.
 sed -i '/lab\.example/d' /etc/hosts
 hostnamectl set-hostname localhost.localdomain
 dev="$(ip -o -4 route show default | awk 'NR == 1 {print $5}')"

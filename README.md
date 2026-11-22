@@ -63,7 +63,7 @@ have done it: they contain the answers.
 
 ## Mock exam 1
 
-25 tasks, 3 hours, 300 points, 210 to pass, based on the public
+26 tasks, 3 hours, 300 points, 210 to pass, based on the public
 [EX200 objectives](https://www.redhat.com/en/services/training/ex200-red-hat-certified-system-administrator-rhcsa-exam):
 
 | Area | Tasks |
@@ -76,7 +76,7 @@ have done it: they contain the answers.
 | File systems | mount by UUID, autofs with NFS home directories, setgid shared directory |
 | Security | SELinux enforcing, port labels and file contexts, SSH key authentication |
 | Services and scheduling | chrony client, cron job, systemd timer, Apache on a custom port |
-| Essential tools | find, grep, tar with bzip2, a Bash script with arguments and exit codes |
+| Essential tools | find, grep, tar with bzip2, a small Bash script |
 
 ## Grading
 
@@ -87,10 +87,10 @@ reboots node1 and node2, because in the exam everything has to survive a reboot.
 ==> Grading exam1, 164 minutes after the start
 ==> Rebooting node1 node2 first (everything has to survive a reboot, like in the exam)
 
-  12. node1: SELinux
+  10. node1: SELinux
     ✓ 10/10  SELinux is enforcing, also after a reboot
 
-  13. node1: web server
+  11. node1: web server
     ✓ 10/10  http://node1.lab.example:82/ shows the page (tested from utility)
     ✗  0/5   httpd starts at boot and serves the page with SELinux enforcing
 

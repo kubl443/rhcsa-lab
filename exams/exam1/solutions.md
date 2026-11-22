@@ -1,8 +1,162 @@
 # RHCSA mock exam 1: solutions
 
-One way to solve each task. Other ways are fine, the grader only checks the result.
+One way to solve each task, the way it's usually taught. Other ways are fine, the grader only
+checks the result.
 
-**1. Root password (node2 console)**
+## node1
+
+**1. Repositories**
+```bash
+dnf config-manager --add-repo=http://utility.lab.example/repo/BaseOS
+dnf config-manager --add-repo=http://utility.lab.example/repo/AppStream
+dnf repolist
+```
+If `dnf` complains about a GPG key, add `gpgcheck=0` to the two new files in
+`/etc/yum.repos.d/`. You can also write one file yourself, e.g. `/etc/yum.repos.d/lab.repo`:
+```ini
+[BaseOS]
+name=BaseOS
+baseurl=http://utility.lab.example/repo/BaseOS
+gpgcheck=0
+
+[AppStream]
+name=AppStream
+baseurl=http://utility.lab.example/repo/AppStream
+gpgcheck=0
+```
+
+**2. Users and groups**
+```bash
+groupadd -g 3000 sysops
+useradd -G sysops natasha
+useradd -G sysops harry
+useradd -s /sbin/nologin sarah
+passwd natasha          # type kubl123 twice
+passwd harry
+passwd sarah
+```
+For a user that already exists: `usermod -aG sysops natasha`. Without the `-a`, the user is
+removed from all other supplementary groups.
+
+**3. sudo**
+```bash
+visudo -f /etc/sudoers.d/sysops
+```
+with the line:
+```
+%sysops ALL=(ALL) NOPASSWD: ALL
+```
+`visudo` checks the syntax and sets the right permissions on the file.
+
+**4. Shared directory**
+```bash
+mkdir -p /common/sysops
+chown :sysops /common/sysops
+chmod 2770 /common/sysops       # 2 = setgid: new files get the group of the directory
+```
+
+**5. Password aging**
+```bash
+vim /etc/login.defs             # PASS_MAX_DAYS   90
+chage -M 30 harry
+chage -l harry
+```
+
+**6. Default permissions**
+```bash
+echo 'umask 027' >> /home/natasha/.bashrc
+su - natasha -c umask           # 0027
+```
+
+**7. Cron**
+```bash
+crontab -e -u natasha
+```
+```
+23 14 * * * logger "kubl daily check"
+```
+
+**8. Time**
+```bash
+vim /etc/chrony.conf            # replace the pool line with:  server utility.lab.example iburst
+systemctl restart chronyd
+chronyc sources
+```
+
+**9. autofs**
+```bash
+dnf install autofs nfs-utils
+vim /etc/auto.master.d/rhome.autofs
+```
+```
+/rhome  /etc/auto.rhome
+```
+```bash
+vim /etc/auto.rhome
+```
+```
+remoteuser1  -rw  utility.lab.example:/rhome/remoteuser1
+```
+```bash
+systemctl enable --now autofs
+su - remoteuser1                # you land in /rhome/remoteuser1
+```
+For all users at once: `*  -rw  utility.lab.example:/rhome/&`
+
+**10. SELinux**
+```bash
+vim /etc/selinux/config         # SELINUX=enforcing
+setenforce 1
+getenforce
+```
+
+**11. Web server**
+```bash
+systemctl status httpd          # with SELinux enforcing it can't use port 82
+semanage port -a -t http_port_t -p tcp 82
+ls -Z /var/www/html             # index.html has the wrong label (admin_home_t)
+restorecon -Rv /var/www/html
+systemctl enable httpd
+systemctl restart httpd
+firewall-cmd --permanent --add-port=82/tcp
+firewall-cmd --reload
+curl http://node1.lab.example:82/
+```
+
+**12. Find files**
+```bash
+mkdir /root/found
+find / -user jacques -type f -exec cp {} /root/found/ \;
+```
+
+**13. Search text**
+```bash
+grep ERROR /var/log/kubl/app.log > /root/errors.txt
+```
+
+**14. Archive**
+```bash
+tar -cjf /root/local.tar.bz2 /usr/local
+```
+
+**15. Shell script**
+```bash
+vim /usr/local/bin/bigfiles
+```
+```bash
+#!/bin/bash
+mkdir -p /root/bigfiles
+find /etc -type f -size +100k -exec cp {} /root/bigfiles/ \;
+```
+```bash
+chmod +x /usr/local/bin/bigfiles
+bigfiles
+ls /root/bigfiles
+```
+
+## node2
+
+**16. Root password (console)**
 Reboot, in the boot menu press `e`, add `init=/bin/bash` to the end of the `linux` line, `Ctrl+x`.
 ```bash
 mount -o remount,rw /
@@ -13,221 +167,119 @@ exec /sbin/init                 # continue booting (the relabel reboots once mor
 On RHEL 8 and 9 this was often done with `rd.break` and `chroot /sysroot`. On RHEL 10,
 `init=/bin/bash` is the reliable way.
 
-**2. Network (node2 console)**
+**17. Network (console)**
 ```bash
-nmcli connection show                       # the connection is named like the interface
+nmcli connection show           # name of the connection, e.g. eth0
 nmcli connection modify eth0 ipv4.method manual ipv4.addresses 10.78.0.12/24 \
   ipv4.gateway 10.78.0.1 ipv4.dns 10.78.0.10
 nmcli connection up eth0
 hostnamectl set-hostname node2.lab.example
 ```
-(`eth0` = the name from `nmcli connection show`.) From now on you can use `ssh root@10.78.0.12`.
+Or with `nmtui`: "Edit a connection", set IPv4 to Manual, fill in address, gateway and DNS,
+OK. Then "Activate a connection" off and on again. "Set system hostname" is in there too.
+From now on you can use `ssh root@10.78.0.12`.
 
-**3. Repositories (both nodes)**
+**18. Repositories**
+Same as task 1.
+
+**19. Logical volume**
 ```bash
-cat >/etc/yum.repos.d/lab.repo <<'EOF'
-[BaseOS]
-name=BaseOS
-baseurl=http://utility.lab.example/repo/BaseOS
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux-10
-
-[AppStream]
-name=AppStream
-baseurl=http://utility.lab.example/repo/AppStream
-gpgcheck=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux-10
-EOF
-dnf repolist
-```
-On a real RHEL exam the key is `/etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release`. If the exam
-doesn't mention a key, `gpgcheck=0` is fine too.
-
-**4. Users and groups**
-```bash
-groupadd -g 3000 sysops
-useradd -G sysops natasha
-useradd -G sysops harry
-useradd -s /sbin/nologin sarah
-for u in natasha harry sarah; do echo "$u:kubl123" | chpasswd; done
-```
-
-**5. sudo**
-```bash
-echo '%sysops ALL=(ALL) NOPASSWD: ALL' >/etc/sudoers.d/sysops
-chmod 440 /etc/sudoers.d/sysops          # with 644, visudo -c reports "bad permissions"
-visudo -c
-```
-
-**6. Shared directory**
-```bash
-mkdir -p /common/sysops
-chgrp sysops /common/sysops
-chmod 2770 /common/sysops
-```
-
-**7. Password aging**
-```bash
-vim /etc/login.defs              # PASS_MAX_DAYS 90
-chage -M 30 harry
-```
-
-**8. Default permissions**
-```bash
-echo 'umask 027' >>/home/natasha/.bashrc
-su - natasha -c umask            # 0027
-```
-
-**9. Cron**
-```bash
-crontab -e -u natasha
-# 23 14 * * * logger "kubl daily check"
-```
-
-**10. Time**
-```bash
-vim /etc/chrony.conf             # comment out the pool line, add: server utility.lab.example iburst
-systemctl restart chronyd
-chronyc sources
-```
-
-**11. autofs**
-```bash
-dnf -y install autofs nfs-utils
-echo '/rhome /etc/auto.rhome' >/etc/auto.master.d/rhome.autofs
-echo 'remoteuser1 -rw utility.lab.example:/rhome/remoteuser1' >/etc/auto.rhome
-systemctl enable --now autofs
-su - remoteuser1 -c pwd          # /rhome/remoteuser1
-```
-
-**12. SELinux**
-```bash
-vim /etc/selinux/config          # SELINUX=enforcing
-setenforce 1
-```
-
-**13. Web server**
-```bash
-systemctl status httpd           # with SELinux enforcing: can't bind to port 82
-semanage port -a -t http_port_t -p tcp 82
-ls -Z /var/www/html/index.html   # admin_home_t, wrong
-restorecon -v /var/www/html/index.html
-systemctl enable --now httpd; systemctl restart httpd
-firewall-cmd --permanent --add-port=82/tcp; firewall-cmd --reload
-```
-
-**14. Find files**
-```bash
-mkdir /root/found
-find / -user jacques -type f -exec cp {} /root/found/ \; 2>/dev/null
-```
-
-**15. Search text**
-```bash
-grep ERROR /var/log/kubl/app.log >/root/errors.txt
-```
-
-**16. Archive**
-```bash
-tar -cjf /root/local.tar.bz2 /usr/local
-```
-
-**17. Shell script**
-```bash
-#!/bin/bash
-if [ $# -eq 0 ]; then
-  echo "Usage: userinfo USER..."
-  exit 1
-fi
-for user in "$@"; do
-  if id "$user" &>/dev/null; then
-    echo "$user: $(id -u "$user") $(getent passwd "$user" | cut -d: -f6)"
-  else
-    echo "$user: not found"
-  fi
-done
-```
-`chmod +x /usr/local/bin/userinfo`
-
-**18. Logical volume**
-```bash
-parted -s /dev/vdb mklabel gpt mkpart data 1MiB 100% set 1 lvm on
+parted /dev/vdb mklabel gpt
+parted /dev/vdb mkpart data 1MiB 100%
+parted /dev/vdb set 1 lvm on
 pvcreate /dev/vdb1
 vgcreate -s 16M datavg /dev/vdb1
 lvcreate -l 20 -n datalv datavg
 mkfs.xfs /dev/datavg/datalv
 mkdir /data
-blkid /dev/datavg/datalv         # UUID
-echo 'UUID=<the uuid> /data xfs defaults 0 0' >>/etc/fstab
-systemctl daemon-reload; mount -a; df -h /data
+blkid /dev/datavg/datalv        # copy the UUID
+vim /etc/fstab                  # UUID=<uuid>  /data  xfs  defaults  0 0
+systemctl daemon-reload
+mount -a
+df -h /data
 ```
+`fdisk` or `gdisk` work as well for the partition.
 
-**19. Grow a logical volume**
+**20. Grow a logical volume**
 ```bash
-lvextend -r -L 800M /dev/appvg/applv     # -r grows the ext4 filesystem too
+lvextend -r -L 800M /dev/appvg/applv    # -r grows the ext4 filesystem too
+df -h /app
 ```
+Without `-r`: run `resize2fs /dev/appvg/applv` afterwards.
 
-**20. Swap**
+**21. Swap**
 ```bash
-parted -s /dev/vdc print                 # vdc1 ends at 2049MiB
-parted -s /dev/vdc mkpart swap linux-swap 2049MiB 2561MiB
-mkswap /dev/vdc2                         # prints the UUID
-echo 'UUID=<the uuid> none swap defaults 0 0' >>/etc/fstab
-systemctl daemon-reload; swapon -a; swapon --show
+parted /dev/vdc print                   # vdc1 ends at 2049MiB
+parted /dev/vdc mkpart swap linux-swap 2049MiB 2561MiB
+mkswap /dev/vdc2                        # shows the UUID
+vim /etc/fstab                          # UUID=<uuid>  none  swap  defaults  0 0
+systemctl daemon-reload
+swapon -a
+swapon --show
 ```
 
-**21. Tuning**
+**22. Tuning**
 ```bash
 tuned-adm recommend
-tuned-adm profile virtual-guest          # whatever recommend said
+tuned-adm profile virtual-guest         # whatever recommend said
+tuned-adm active
 ```
 
-**22. Journal**
+**23. Journal**
 ```bash
-mkdir /var/log/journal                   # or Storage=persistent in /etc/systemd/journald.conf
+mkdir /var/log/journal
 systemctl restart systemd-journald
 ```
+Or set `Storage=persistent` in `/etc/systemd/journald.conf` and restart it.
 
-**23. Process priority**
+**24. Process priority**
 ```bash
-ps -o pid,ni,cmd -C report-builder       # NI 0
-systemctl edit report-builder            # add:  [Service]
-                                         #       Nice=10
-systemctl restart report-builder
-ps -o pid,ni,cmd -C report-builder       # NI 10
+ps -o pid,ni,cmd -C report-builder      # NI is 0
+systemctl edit report-builder
 ```
-`renice -n 10 -p <PID>` changes it only until the next restart, so it fails after the reboot.
-
-**24. systemd timer**
+```
+[Service]
+Nice=10
+```
 ```bash
-cat >/etc/systemd/system/kubl-cleanup.service <<'EOF'
+systemctl restart report-builder
+ps -o pid,ni,cmd -C report-builder      # NI is 10
+```
+`renice` only changes the running process, after a reboot it's back to 0.
+
+**25. systemd timer**
+`vim /etc/systemd/system/kubl-cleanup.service`
+```ini
 [Unit]
-Description=Delete old tmp files
+Description=Delete tmp files in /var/tmp
 
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/find /var/tmp -name *.tmp -delete
-EOF
-cat >/etc/systemd/system/kubl-cleanup.timer <<'EOF'
+```
+`vim /etc/systemd/system/kubl-cleanup.timer`
+```ini
 [Unit]
-Description=Hourly tmp cleanup
+Description=Run kubl-cleanup every hour
 
 [Timer]
 OnCalendar=hourly
 
 [Install]
 WantedBy=timers.target
-EOF
+```
+```bash
 systemctl daemon-reload
 systemctl enable --now kubl-cleanup.timer
+systemctl list-timers
 ```
-(In `ExecStart=` systemd doesn't expand `*`, so `*.tmp` reaches `find` as it should.)
 
-**25. SSH keys**
+## node1 and node2
+
+**26. SSH keys**
 ```bash
-# on node1
-su - deploy
-ssh-keygen                               # Enter, Enter, Enter
-ssh-copy-id deploy@node2.lab.example     # password kubl123
-ssh node2.lab.example hostname           # no password asked
+su - deploy                     # on node1
+ssh-keygen                      # Enter, Enter, Enter
+ssh-copy-id node2.lab.example   # password kubl123
+ssh node2.lab.example           # no password asked anymore
 ```
