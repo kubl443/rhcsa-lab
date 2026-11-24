@@ -13,6 +13,7 @@ set -euo pipefail
 LAB="rhcsa"
 NET="${NET:-10.78.0}"                 # lab network ${NET}.0/24, gateway ${NET}.1
 VNET="${VNET:-kublrh}"                # Proxmox SDN VNet (max. 8 characters)
+VMID_START="${VMID_START:-5000}"      # the VMs get the first free VMIDs from here on
 UTIL_MEM="${UTIL_MEM:-1536}"
 NODE_MEM="${NODE_MEM:-2048}"
 ROOT_PASSWORD="redhat"

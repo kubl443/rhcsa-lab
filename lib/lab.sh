@@ -243,13 +243,21 @@ check_resources() {
   ok "${free_mb} MB RAM free, the VMs use ${need_mb} MB"
 }
 
+next_vmid() {  # first free VMID (VM or container) from $VMID_START up
+  local id
+  for ((id = VMID_START; id < VMID_START + 1000; id++)); do
+    pvesh get /cluster/nextid --vmid "$id" >/dev/null 2>&1 && { echo "$id"; return; }
+  done
+  return 1
+}
+
 create_vms() {  # create_vms IMAGE
   local img="$1" spec n ip mem disks d id i dns
   dns="$(awk '/^nameserver/ && $2 !~ /^127\./ {print $2; exit}' /etc/resolv.conf)"
   for spec in "${NODES[@]}"; do
     read -r n ip mem disks <<<"$spec"
     IFS=, read -r -a d <<<"$disks"
-    id="$(pvesh get /cluster/nextid)"
+    id="$(next_vmid)" || die "no free VMID between $VMID_START and $((VMID_START + 999))"
     qm create "$id" --name "$n" --tags "kubl-labs;$LAB" --ostype l26 --cpu host --cores "$CORES" --memory "$mem" \
       --net0 "virtio,bridge=$VNET" --scsihw virtio-scsi-single \
       "--${BUS}0" "$STORAGE:0,import-from=$img$FMT" --boot "order=${BUS}0" --ide2 "$STORAGE:cloudinit" \

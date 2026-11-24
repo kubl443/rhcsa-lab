@@ -141,12 +141,14 @@ Set them as environment variables, e.g. `STORAGE=local-zfs bash rhcsa-lab.sh cre
 | `NET` | `10.78.0` | lab network (`/24`) |
 | `UTIL_MEM` / `NODE_MEM` | `1536` / `2048` | memory per VM in MB |
 | `CORES` | `2` | CPU cores per VM |
+| `VMID_START` | `5000` | the VMs get the first free VMIDs from here on |
 
 ## What it changes on the host
 
 - A Proxmox SDN zone `kubl` (type simple, with NAT) and a VNet `kublrh`. If a VNet with that
   name already exists, the script stops instead of using it.
-- Three VMs tagged `kubl-labs`. `destroy` only deletes VMs with the lab's names **and** that tag.
+- Three VMs tagged `kubl-labs`, with the first free VMIDs from 5000 on, so they don't end
+  up between your own VMs. `destroy` only deletes VMs with the lab's names **and** that tag.
 - IP forwarding is enabled (`/etc/sysctl.d/99-kubl-labs.conf`)
 - `/root/kubl-labs`: the cloud image, an SSH key for the script, logs and grading results
 
